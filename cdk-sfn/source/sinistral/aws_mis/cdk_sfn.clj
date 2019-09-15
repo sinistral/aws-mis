@@ -34,10 +34,16 @@
     (merge t {"Resources" (into {} (map #(xform-sfn % {:functions functions :roles roles})
                                         resources))})))
 
-(defn definition-string
+(defn- definition-string
   [t sm-id]
-  (apply str/join
-         (get-in t ["Resources" sm-id "Properties" "DefinitionString" "Fn::Join"])))
+  (apply str/join (get-in t ["Resources" sm-id "Properties" "DefinitionString" "Fn::Join"])))
+
+(defn- select-sm
+  [t sm-id]
+  (get (into {}
+             (filter #(typeof? % "AWS::StepFunctions::StateMachine")
+                     (seq (get t "Resources"))))
+       sm-id))
 
 (def ^:private mandatory-opts
   #{:template})
@@ -47,10 +53,27 @@
   (not-every? opts mandatory-opts))
 
 (def ^:private cli-opts
-  [["-t" "--template TEMPLATE"
+  [[nil "--definition-string"
+    "Given the ID (-i) of a Step Functions State Machine, emit the JSON definition string that might be passed to 'aws stepfunctions create-state-machine --definition ...'"]
+   ["-h" "--help"]
+   ["-i" "--state-machine-id ID"
+    "Limit output to the State Machine with the specified logical ID in the template."]
+   ["-l" "--localise"
+    "Localise the Resource definitions in Step Functions State Machine definitions."]
+   ["-t" "--template TEMPLATE"
     "CDK-synthesised template (i.e.: cdk --no-staging synth)"
-    :validate [#(.exists (io/as-file %)) "Template file does not exist."]]
-   ["-h" "--help"]])
+    :validate [#(.exists (io/as-file %)) "Template file does not exist."]]])
+
+(defn process-template
+  ([options]
+   (process-template (json/read-str (slurp (:template options))) options))
+  ([template options]
+   (cond-> template
+     (:localise options)                      localise
+     (:definition-string options)             (definition-string (:state-machine-id options))
+     (and (:state-machine-id options)
+          (not (:definition-string options))) (select-sm (:state-machine-id options))
+     true                                     (identity))))
 
 (defn -main
   [& args]
@@ -58,4 +81,4 @@
     (cond (:help options)              (println summary)
           errors                       (throw (ex-info "Invocation error" {:errors errors}))
           (missing-mandatory? options) (throw (ex-info "Invocation error" {:required mandatory-opts}))
-          :else                        (json/pprint (localise (json/read-str (slurp (:template options))))))))
+          :else                        (println (process-template options)))))
