@@ -33,7 +33,7 @@ aws --region eu-central-1 \
     create-state-machine \
     --name ${state_machine_id} \
     --role-arn "arn:aws:iam::012345678901:role/DummyRole" \
-    --definition $(clojure -Sdeps "{:deps {sinistral/aws-mis.cdk-sfn {:local/root \"${DEVROOT}/aws-mis.git/cdk-sfn\"}}}" \
+    --definition $(clojure -Sdeps "{:deps {sinistral/aws-mis.cdk-sfn {:git/url \"git@github.com:sinistral/aws-mis.git\" :deps/root \"cdk-sfn\" :sha \"4be4d230389744f5e04821ab8b5c684176985549\"}}}" \
                            -m sinistral.aws-mis.cdk-sfn -t ${json_cfn_template} \
                            -l \
                            -i \
