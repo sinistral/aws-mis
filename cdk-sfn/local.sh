@@ -4,16 +4,17 @@ localhost=host.docker.internal
 # https://docs.docker.com/docker-for-mac/networking/#there-is-no-docker0-bridge-on-macos
 
 usage () {
-    echo "Usage: $0 template-file state-machine-logical-cfn-id"
+    echo "Usage: $0 state-machine-logical-cfn-id"
     exit $1
 }
 
 set -ex
 
 [[ -z $1 ]] && usage 1
-cfn_template=$1
-[[ -z $2 ]] && usage 1
-state_machine_id=$2
+state_machine_id=$1
+
+yaml_cfn_template=$(mktemp -t cfn-yaml)
+cdk synth --no-staging > ${yaml_cfn_template}
 
 docker run \
        $(env | grep AWS | cut -d '=' -f 1 | xargs -n 1 echo "-e" | xargs) \
@@ -23,9 +24,9 @@ docker run \
 
 sleep 3s
 
-json_cfn_template=$(mktemp -t $(basename ${cfn_template}))
+json_cfn_template=$(mktemp -t $(basename ${yaml_cfn_template}))
 python -c 'import sys, yaml, json; json.dump(yaml.load(sys.stdin), sys.stdout, indent=2)' \
-       < ${cfn_template} \
+       < ${yaml_cfn_template} \
        > ${json_cfn_template}
 
 aws --region eu-central-1 \
@@ -42,4 +43,4 @@ aws --region eu-central-1 \
 
 sam local start-lambda \
     --port 3001 \
-    -t ${cfn_template}
+    -t ${yaml_cfn_template}
