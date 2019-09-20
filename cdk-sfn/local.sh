@@ -16,9 +16,14 @@ state_machine_id=$1
 yaml_cfn_template=$(mktemp -t cfn-yaml)
 cdk synth --no-staging > ${yaml_cfn_template}
 
+local_account=${AWS_ACCOUNT_ID:-123456789012}
+local_region=${AWS_DEFAULT_REGION:-eu-central-1}
+
 docker run \
        $(env | grep AWS | cut -d '=' -f 1 | xargs -n 1 echo "-e" | xargs) \
        -e LAMBDA_ENDPOINT=http://${localhost}:3001 \
+       -e AWS_ACCOUNT_ID=${local_account} \
+       -e AWS_DEFAULT_REGION=${local_region} \
        -p 8083:8083 \
        amazon/aws-stepfunctions-local &
 
@@ -43,4 +48,5 @@ aws --region eu-central-1 \
 
 sam local start-lambda \
     --port 3001 \
+    --region ${local_region} \
     -t ${yaml_cfn_template}
