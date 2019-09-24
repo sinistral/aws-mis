@@ -39,12 +39,13 @@ python -c 'import sys, yaml, json; json.dump(yaml.load(sys.stdin), sys.stdout, i
        < ${yaml_cfn_template} \
        > ${json_cfn_template}
 
+script_home=$(dirname ${0})
 aws --region eu-central-1 \
     stepfunctions --endpoint http://localhost:8083 \
     create-state-machine \
     --name ${state_machine_id} \
     --role-arn "arn:aws:iam::012345678901:role/DummyRole" \
-    --definition $(clojure -Sdeps "{:deps {sinistral/aws-mis.cdk-sfn {:git/url \"git@github.com:sinistral/aws-mis.git\" :deps/root \"cdk-sfn\" :sha \"4be4d230389744f5e04821ab8b5c684176985549\"}}}" \
+    --definition $(clojure -Sdeps "{:deps {sinistral/aws-mis.cdk-sfn {:local/root \"${script_home}\"}}}" \
                            -m sinistral.aws-mis.cdk-sfn -t ${json_cfn_template} \
                            -l \
                            -i \
