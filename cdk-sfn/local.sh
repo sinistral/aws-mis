@@ -14,7 +14,12 @@ set -ex
 state_machine_id=$1
 
 yaml_cfn_template=$(mktemp -t cfn-yaml)
-cdk synth --no-staging > ${yaml_cfn_template}
+if [[ -e ./node_modules/cdk/bin/cdk ]]; then
+    cdk=./node_modules/cdk/bin/cdk
+else
+    cdk=cdk
+fi
+${cdk} synth --no-staging > ${yaml_cfn_template}
 
 local_account=${AWS_ACCOUNT_ID:-123456789012}
 local_region=${AWS_DEFAULT_REGION:-eu-central-1}
