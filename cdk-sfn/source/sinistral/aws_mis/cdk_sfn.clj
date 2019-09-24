@@ -19,9 +19,14 @@
                               (and (map? x)
                                    (-> x keys #{["Fn::GetAtt"]})
                                    (-> x vals first second #{"Arn"})
-                                   (-> x vals ffirst targets)))]
+                                   (-> x vals ffirst targets)))
+                            (ref? [x targets]
+                              (and (map? x)
+                                   (-> x keys #{["Ref"]})
+                                   (-> x vals first targets)))]
                       (cond (get-att-arn? x functions) (str "arn:aws:lambda:us-east-1:012345678901:function:" (-> x vals ffirst))
                             (get-att-arn? x roles)     (str "arn:aws:iam::012345678901:role/" (-> x vals ffirst))
+                            (ref? x functions)         (str "arn:aws:lambda:us-east-1:012345678901:function:" (-> x vals first))
                             :else                      x)))
                   res-entry)
     res-entry))
