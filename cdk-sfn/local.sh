@@ -4,22 +4,25 @@ localhost=host.docker.internal
 # https://docs.docker.com/docker-for-mac/networking/#there-is-no-docker0-bridge-on-macos
 
 usage () {
-    echo "Usage: $0 state-machine-logical-cfn-id"
+    echo "Usage: $0 stack-name state-machine-logical-cfn-id"
     exit $1
 }
 
 set -ex
 
 [[ -z $1 ]] && usage 1
-state_machine_id=$1
+stack_name=$1
+[[ -z $2 ]] && usage 1
+state_machine_id=$2
 
-yaml_cfn_template=$(mktemp -t cfn-yaml)
 if [[ -e ./node_modules/cdk/bin/cdk ]]; then
     cdk=./node_modules/cdk/bin/cdk
 else
     cdk=cdk
 fi
-${cdk} synth --no-staging > ${yaml_cfn_template}
+
+json_cfn_template=$(mktemp -t $(basename $(mktemp -t cfn-json)))
+${cdk} synth ${stack_name} --json --no-staging > ${json_cfn_template}
 
 local_account=${AWS_ACCOUNT_ID:-123456789012}
 local_region=${AWS_DEFAULT_REGION:-eu-central-1}
@@ -33,11 +36,6 @@ docker run \
        amazon/aws-stepfunctions-local &
 
 sleep 3s
-
-json_cfn_template=$(mktemp -t $(basename ${yaml_cfn_template}))
-python -c 'import sys, yaml, json; json.dump(yaml.load(sys.stdin), sys.stdout, indent=2)' \
-       < ${yaml_cfn_template} \
-       > ${json_cfn_template}
 
 script_home=$(dirname ${0})
 aws --region eu-central-1 \
@@ -55,4 +53,4 @@ aws --region eu-central-1 \
 sam local start-lambda \
     --port 3001 \
     --region ${local_region} \
-    -t ${yaml_cfn_template}
+    -t ${json_cfn_template}
