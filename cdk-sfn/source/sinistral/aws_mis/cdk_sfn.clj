@@ -1,10 +1,12 @@
 
 (ns sinistral.aws-mis.cdk-sfn
+  (:refer-clojure :exclude [cond cond->])
   (:require [clojure.data.json :as json]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.tools.cli :as cli]
-            [clojure.walk :as walk]))
+            [clojure.walk :as walk]
+            [familiar.alpha.core :refer [cond cond->]]))
 
 (defn- typeof?
   [[_ res-def] res-type]
@@ -20,14 +22,24 @@
                                    (-> x keys #{["Fn::GetAtt"]})
                                    (-> x vals first second #{"Arn"})
                                    (-> x vals ffirst targets)))
+                            (partition-ref? [x]
+                              (and (map? x)
+                                   (-> x keys #{["Ref"]})
+                                   (-> x vals #{["AWS::Partition"]})))
                             (ref? [x targets]
                               (and (map? x)
                                    (-> x keys #{["Ref"]})
                                    (-> x vals first targets)))]
-                      (cond (get-att-arn? x functions) (str "arn:aws:lambda:us-east-1:012345678901:function:" (-> x vals ffirst))
-                            (get-att-arn? x roles)     (str "arn:aws:iam::012345678901:role/" (-> x vals ffirst))
-                            (ref? x functions)         (str "arn:aws:lambda:us-east-1:012345678901:function:" (-> x vals first))
-                            :else                      x)))
+                      (cond [(get-att-arn? x functions)
+                             (str "arn:aws:lambda:us-east-1:012345678901:function:" (-> x vals ffirst))]
+                            [(get-att-arn? x roles)
+                             (str "arn:aws:iam::012345678901:role/" (-> x vals ffirst))]
+                            [(ref? x functions)
+                             (str "arn:aws:lambda:us-east-1:012345678901:function:" (-> x vals first))]
+                            [(partition-ref? x)
+                             "aws"]
+                            [:else
+                             x])))
                   res-entry)
     res-entry))
 
@@ -74,16 +86,19 @@
    (process-template (json/read-str (slurp (:template options))) options))
   ([template options]
    (cond-> template
-     (:localise options)                      localise
-     (:definition-string options)             (definition-string (:state-machine-id options))
-     (and (:state-machine-id options)
-          (not (:definition-string options))) (select-sm (:state-machine-id options))
-     true                                     (identity))))
+     [(:localise options)
+      localise]
+     [(:definition-string options)
+      (definition-string (:state-machine-id options))]
+     [(and (:state-machine-id options) (not (:definition-string options)))
+      (select-sm (:state-machine-id options))]
+     [true
+      (identity)])))
 
 (defn -main
   [& args]
   (let [{:keys [options arguments summary errors]} (cli/parse-opts args cli-opts)]
-    (cond (:help options)              (println summary)
-          errors                       (throw (ex-info "Invocation error" {:errors errors}))
-          (missing-mandatory? options) (throw (ex-info "Invocation error" {:required mandatory-opts}))
-          :else                        (println (process-template options)))))
+    (cond [(:help options)              (println summary)]
+          [errors                       (throw (ex-info "Invocation error" {:errors errors}))]
+          [(missing-mandatory? options) (throw (ex-info "Invocation error" {:required mandatory-opts}))]
+          [:else                        (println (process-template options))])))
