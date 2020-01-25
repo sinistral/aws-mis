@@ -8,7 +8,7 @@ usage () {
     exit $1
 }
 
-set -ex
+set -e
 
 [[ -z $1 ]] && usage 1
 stack_name=$1
